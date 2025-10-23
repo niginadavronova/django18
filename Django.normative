@@ -1,0 +1,174 @@
+from email import message
+from urllib import request
+from wsgiref.util import request_uri
+
+from django.conf import settings
+from django.contrib.auth import login, authenticate
+from django.contrib.auth.models import User
+from django.core.signals import setting_changed
+from django.db.models.fields import return_None
+from django.http import HttpResponseRedirect
+from django.shortcuts import render, redirect
+from django.utils import translation
+from home.models import Server, Subject, ContactMessage, Banner2
+from home.models import Setting, ContactForm, ContactMessage
+from django.contrib import messages
+import requests
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from django.contrib.auth import authenticate, login
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
+from .models import *
+
+
+def home(request):
+    return render(request, 'home.html')
+
+
+def login_page(request):
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+
+        if not User.objects.filter(username=username).exists():
+            messages.error(request, 'Invalid username')
+            return redirect('/login/')
+
+        user = authenticate(username=username, password=password)
+
+        if user is not None:
+            login(request, user)
+            return redirect('/home/')
+        else:
+            messages.error(request, 'Invalid password')
+            return redirect('/login/')
+
+    return render(request, 'login.html')
+
+
+def register_page(request, registration=None):
+    if request.method == 'POST':
+        first_name = request.POST.get('first_name')
+        last_name = request.POST.get('last_name')
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+
+        if User.objects.filter(username=username).exists():
+            messages.error(request, "Username already taken!")
+            return redirect('/register/')
+
+        user = User.objects.create_user(
+            first_name=first_name,
+            last_name=last_name,
+            username=username,
+            password=password
+        )
+
+        messages.success(request, 'Account created successfully!')
+        return redirect('/login/')
+
+    return render(request, 'register.html')
+
+
+def index(request):
+    setting = Setting.objects.get()
+    subject_cr = Subject.objects.all()
+    banner = Banner2.objects.get()
+    context = {"setting": setting,
+               "subject_cr": subject_cr,
+               "banner": banner}
+    return render(request, 'index.html', context)
+
+
+def about(request):
+    setting = Setting.objects.get()
+    subject_cr = Subject.objects.all()
+    context = {'setting': setting,
+               'subject_cr': subject_cr}
+    return render(request, 'about.html', context)
+
+
+def course(request):
+    setting = Setting.objects.get()
+    subject_cr = Subject.objects.all()
+    context = {"setting": setting,
+               "subject_cr": subject_cr}
+    return render(request, 'course.html', context)
+
+
+def blog(request):
+    return render(request, 'blog.html')
+
+
+Token = '7573903717:AAFvvMNkEQjq8en1JlUr1CDi0rRXQnX0M78'
+channel = "@Zayafka12"
+
+
+def contact(request):
+    if request.method == 'POST':
+        form = ContactForm(request.POST)
+        if form.is_valid():
+            data = ContactMessage()
+            name = form.cleaned_data['name']
+            phone = form.cleaned_data['phone']
+            subject = form.cleaned_data['subject']
+            message = form.cleaned_data['message']
+            message_text = f"New message:\n\nName: {name} \nPhone: {phone} \nSubject: {subject} \nMessage: {message}"
+            telegram_api_url = f'https://api.telegram.org/bot{Token}/sendMessage'
+            telegram_params = {'chat_id': {channel}, 'text': message_text}
+            requests.post(telegram_api_url, params=telegram_params)
+            data.ip = request.META.get('REMOTE_ADDR')
+            data.save()
+            messages.success(request, "Thanks," + data.name + "We received your message and will respond shortly ...")
+            return HttpResponseRedirect('/contact.html')
+
+    #  ***adminkada chiqishi uchun bu kodlar***
+    #             data = ContactMessage()
+    #             data.name = form.cleaned_data['name']
+    #             data.phone = form.cleaned_data['phone']
+    #             data.subject = form.cleaned_data['subject']
+    #             data.message = form.cleaned_data['message']
+    #             data.ip = request.META.get('REMOTE_ADDR')
+    #             data.save()
+    #             message.success(request, "Thanks, "+ data.name + "We received your message and respond shortly...")
+    #             return HttpResponseRedirect('/contact')
+    # ***
+    setting = Setting.objects.get()
+    contact = {"setting": setting}
+    return render(request, 'contact.html', contact)
+
+
+def selectlanguage(request):
+    if request.method == 'POST':
+        lang = request.POST['language']
+        translation.activate(lang)
+        request.session[settings.LANGUAGE_COOKIE_NAME]= lang
+        return HttpResponseRedirect(f"/{lang}")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# def selectlanguage(request):
+#     if request.method == 'POST':
+#         lang = request.POST['language']
+#         translation.activate(lang)
+#         request.session[settings.LANGUAGE_COOKIE_NAME] = lang
+#         return HttpResponseRedirect(f"/{lang}")
